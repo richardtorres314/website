@@ -14,6 +14,7 @@ import {
 	isCssFilename,
 	isFrameworkTemplateFilename,
 	isGraphqlFilename,
+	isHtmlFilename,
 	isJsonFilename,
 } from "@/playground/utils";
 import init, {
@@ -223,20 +224,27 @@ self.addEventListener("message", async (e) => {
 			const path = getPathForFile(file);
 			const isFrameworkTemplate = isFrameworkTemplateFilename(filename);
 
-			const syntaxTree = !isFrameworkTemplate
-				? workspace.getSyntaxTree({
+			function getSyntaxTree(): { ast: string; cst: string } {
+				try {
+					return workspace.getSyntaxTree({
 						path,
-					})
-				: {
+					});
+				} catch (err) {
+					console.error(err);
+					return {
 						ast: "Not available",
 						cst: "Not available",
 					};
+				}
+			}
+			const syntaxTree = getSyntaxTree();
 
 			const isGraphql = isGraphqlFilename(filename);
 
 			const controlFlowGraph = !(
 				isJsonFilename(filename) ||
 				isCssFilename(filename) ||
+				isHtmlFilename(filename) ||
 				isGraphql ||
 				isFrameworkTemplate
 			)
@@ -246,17 +254,24 @@ self.addEventListener("message", async (e) => {
 					})
 				: "";
 
-			const formatterIr = !isFrameworkTemplate
-				? workspace.getFormatterIr({
-						path,
-					})
-				: "Not available";
-
-			const importSorting = isGraphql
-				? { code: "" }
-				: workspace.organizeImports({
+			function getFormatterIr() {
+				try {
+					return workspace.getFormatterIr({
 						path,
 					});
+				} catch (err) {
+					console.error(err);
+					return "Not available";
+				}
+			}
+			const formatterIr = getFormatterIr();
+
+			const importSorting =
+				isGraphql || isHtmlFilename(filename)
+					? { code: "" }
+					: workspace.organizeImports({
+							path,
+						});
 
 			const categories: RuleCategories = [];
 			if (configuration?.formatter?.enabled) {
